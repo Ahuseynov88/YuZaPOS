@@ -712,3 +712,73 @@ body.dark-mode .yz-dotsmenu__it .icon{color:var(--gold);}
 .yz-rs-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 12px;max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin:4px 0 12px}
 .yz-rs-list label{display:flex;gap:6px;align-items:center;font-size:13px;padding:3px 0}
 .yz-rs-prog{min-height:20px;font-size:13px;color:var(--text2);margin:8px 0 0}
+
+/* ═══ 22. Q1 — masadan QR sifariş ═══ */
+/* İşçi: masa nişanı, siyahı */
+.floor-card{position:relative}
+.yz-qr-badge{position:absolute;top:6px;right:6px;background:var(--gold);color:#1f0a12;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;animation:yzQrPulse 1.6s ease-in-out infinite}
+@keyframes yzQrPulse{50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.yz-qr-badge{animation:none}}
+.yz-qr-toastbtn{margin-left:8px;background:var(--gold);color:#1f0a12;border:0;border-radius:8px;padding:4px 10px;font-weight:700;cursor:pointer;min-height:32px}
+.yz-qr-list{display:grid;gap:12px}
+.yz-qr-card{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--bg2,transparent)}
+.yz-qr-card.is-dead{opacity:.6}
+.yz-qr-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:15px}
+.yz-qr-head span{color:var(--text2);font-size:13px}
+.yz-qr-card ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.yz-qr-card li{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.yz-qr-card li small{color:var(--text2)}
+.yz-qr-note{font-size:13px;color:var(--text2);margin:8px 0 0}
+.yz-qr-total{text-align:right;margin-top:8px;font-size:14px}
+.yz-qr-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.yz-qr-acts .yzi-btn{flex:1 1 auto;min-height:44px}
+
+/* Müştəri: giriş düyməsi, vəziyyət */
+.yz-qc-entry{margin-top:10px}
+.yz-qc-status h3{color:#fff;font-size:14px;margin:16px 0 8px;display:flex;gap:6px;align-items:center}
+.yz-qc-st{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px;margin-bottom:8px;color:#fff;font-size:13px}
+.yz-qc-st b{display:flex;gap:6px;align-items:center}
+.yz-qc-st small{display:block;color:#ffb4a8;margin-top:2px}
+.yz-qc-st p{margin:4px 0;color:rgba(255,255,255,.8)}
+.yz-qc-st span{color:rgba(255,255,255,.55);font-size:12px}
+.yz-qc-st.is-wait b{color:var(--gold)}
+.yz-qc-st.is-ok b{color:#8fe3a5}
+.yz-qc-st.is-bad b{color:#ff8a80}
+/* Müştəri: menyu pəncərəsi */
+body.yz-qc-open{overflow:hidden}
+.yz-qc-sheet{position:fixed;inset:0;z-index:9000;background:#140a0e;color:#fff;display:flex;flex-direction:column}
+.yz-qc-sheet[hidden]{display:none}
+.yz-qc-top{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.12)}
+.yz-qc-top h2{font-size:17px;margin:0}
+.yz-qc-x{width:44px;height:44px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;display:grid;place-items:center;cursor:pointer}
+.yz-qc-tools{padding:10px 14px 0}
+.yz-qc-tools input{width:100%;min-height:44px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;padding:0 12px;font-size:16px}
+.yz-qc-cats{display:flex;gap:8px;overflow-x:auto;padding:10px 0;scrollbar-width:none}
+.yz-qc-cats button{flex:0 0 auto;min-height:38px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-size:13px;cursor:pointer}
+.yz-qc-cats button.is-on{background:var(--gold);color:#1f0a12;border-color:var(--gold);font-weight:700}
+.yz-qc-body{flex:1;overflow-y:auto;padding:6px 14px 90px;-webkit-overflow-scrolling:touch}
+.yz-qc-item{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.yz-qc-item img,.yz-qc-noimg{width:64px;height:64px;border-radius:10px;object-fit:cover;background:rgba(255,255,255,.06);display:grid;place-items:center;color:rgba(255,255,255,.4)}
+.yz-qc-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.yz-qc-info b{font-size:15px}
+.yz-qc-info small{color:rgba(255,255,255,.6);font-size:12px}
+.yz-qc-info span{color:var(--gold);font-weight:700;font-size:14px}
+.yz-qc-add{min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-weight:700;cursor:pointer;display:flex;gap:4px;align-items:center;white-space:nowrap}
+.yz-qc-step{display:flex;align-items:center;gap:6px}
+.yz-qc-step button{width:40px;height:40px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:#fff;font-size:20px;cursor:pointer}
+.yz-qc-step b{min-width:22px;text-align:center}
+.yz-qc-line{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.yz-qc-line > div:first-child{display:flex;flex-direction:column}
+.yz-qc-line span{color:var(--gold);font-size:13px}
+.yz-qc-notef{display:flex;flex-direction:column;gap:6px;margin-top:14px;font-size:13px;color:rgba(255,255,255,.7)}
+.yz-qc-notef textarea{border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;padding:10px;font-size:16px;resize:vertical}
+.yz-qc-hint{font-size:12.5px;color:rgba(255,255,255,.6);margin-top:12px;display:flex;gap:6px}
+.yz-qc-empty{text-align:center;color:rgba(255,255,255,.55);padding:30px 0}
+.yz-qc-bar{position:absolute;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(safe-area-inset-bottom));background:#1c0f14;border-top:1px solid rgba(255,255,255,.12);display:flex;gap:10px}
+.yz-qc-go{flex:1;min-height:50px;border-radius:12px;border:0;background:var(--gold);color:#1f0a12;font-weight:800;font-size:15px;cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:center}
+.yz-qc-go:disabled{opacity:.6}
+.yz-qc-back{min-height:50px;padding:0 14px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:transparent;color:#fff;cursor:pointer;display:flex;gap:6px;align-items:center}
+.yz-qc-barhint{color:rgba(255,255,255,.5);font-size:13px;margin:auto}
+.yz-qc-toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,120px);z-index:9100;max-width:92vw;background:#1f3a26;color:#fff;border-radius:12px;padding:12px 14px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:transform .25s;display:flex;gap:8px;align-items:center}
+.yz-qc-toast.is-on{transform:translate(-50%,0)}
+.yz-qc-toast.is-bad{background:#4a1d1d}
