@@ -16,7 +16,7 @@
 ═══════════════════════════════════════════ */
 import { db, R } from './firebase-service.js';
 import { state } from './state.js';
-import { addLog, setStockHook } from './utils.js';
+import { addLog, setStockHook, showToast } from './utils.js';
 import { hasPermission } from './permissions.js';
 import { api, apiOn } from './yuza-api.js';
 
@@ -167,6 +167,16 @@ export function startInv() {
   listen('inv', db.ref('stock'), 'value', s => { inv.stock = s.val() || {}; inv.loaded.stock = true; emit('stock'); flushPending(); maybeInit(); });
   // 3c: server anbar növbəsini emal edirmi (Worker hər dəqiqə nişan qoyur)
   listen('inv', db.ref('sys/stockSrv'), 'value', s => { srvBeat = Number(s.val()?.at) || 0; });
+  // R1: baza ehtiyat nüsxədən bərpa olunanda bütün açıq cihazlar səhifəni yeniləyir
+  let rsAt = null;
+  listen('inv', db.ref('appSignal/restoredAt'), 'value', s => {
+    const v = Number(s.val()) || 0;
+    if (rsAt !== null && v && v !== rsAt) {
+      showToast('<svg class="icon"><use href="#i-refresh"></use></svg> Baza ehtiyat nüsxədən bərpa olundu — səhifə yenilənir…', { ms: 4000 });
+      setTimeout(() => { if (window.__yzNoReload) window.__yzReloaded = true; else location.reload(); }, 3000);
+    }
+    rsAt = v;
+  });
   listen('inv', db.ref('settings/inventory'), 'value', s => {
     inv.settings = s.val() || {}; inv.loaded.settings = true;
     try { localStorage.setItem(MODE_KEY, inv.settings.mode || ''); } catch (e) {}

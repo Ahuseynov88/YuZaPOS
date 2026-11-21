@@ -328,19 +328,22 @@ async function renderBackup() {
   const left = Object.entries(I2.inv.products || {}).filter(([, p]) => M.isDataImg(p?.photo)).length
     + (state.menuItems || []).filter(m => m && M.isDataImg(m.photo) && !(I2.inv.products || {})[m.id]).length;
   box.innerHTML = `<div class="table-card yzs-card"><h3 style="margin-bottom:8px;">${I('save')} Ehtiyat nüsxələr</h3>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Hər gecə 04:00-da bütün baza serverdə (Cloudflare R2) saxlanılır, son 30 gün qalır. Lazım olanda nüsxəni yükləyib Firebase → Realtime Database → ⋮ → Import JSON ilə bərpa etmək olur (diqqət: bərpa bazadakı hər şeyi həmin anın vəziyyəti ilə əvəz edir).</p>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Hər gecə 04:00-da bütün baza serverdə (Cloudflare R2) saxlanılır, son 30 gün qalır. Bərpa buradan edilir: siyahıdakı nüsxədən və ya kompüterdəki fayldan (diqqət: bərpa bazadakı məlumatı nüsxənin vəziyyəti ilə əvəz edir; bərpadan əvvəl hazırkı vəziyyətin nüsxəsi avtomatik alınır).</p>
     <div class="yzs-kv"><span>Son nüsxə</span><b>${last ? `${fmtTs(last.at)} · ${fmtSize(last.size || 0)} · ${esc(last.by || '')}` : 'hələ yoxdur'}</b></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
       <button type="button" class="btn btn-green" data-bk="now">İndi nüsxə al</button>
-      <button type="button" class="btn btn-ghost" data-bk="list">Nüsxələrin siyahısı</button></div>
+      <button type="button" class="btn btn-ghost" data-bk="list">Nüsxələrin siyahısı</button>
+      <button type="button" class="btn btn-ghost" data-bk="file">${I('refresh')} Fayldan bərpa et</button></div>
     <div id="yzsBkList" style="margin-top:10px;"></div>
     <h3 style="margin:18px 0 8px;">${I('camera')} Məhsul şəkilləri</h3>
     <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Yeni şəkillər avtomatik serverə yüklənir. Bazada qalan köhnə şəkillər: <b id="yzsImgLeft">${left}</b>.${left ? ' Köçürüləndə menyu və telefonlar daha sürətli açılır.' : ''}</p>
     ${left ? '<button type="button" class="btn btn-ghost" data-bk="img">Şəkilləri serverə köçür</button> <span id="yzsImgProg" style="font-size:13px;color:var(--text2)"></span>' : ''}</div>`;
   box.onclick = async (e) => {
-    const b = e.target.closest('[data-bk],[data-bkget]'); if (!b || b.disabled) return;
+    const b = e.target.closest('[data-bk],[data-bkget],[data-bkrs]'); if (!b || b.disabled) return;
     b.disabled = true;
     try {
+      if (b.dataset.bk === 'file') { (await import('./yuza-restore.js')).pickFile(); }
+      if (b.dataset.bkrs) { await (await import('./yuza-restore.js')).fromServer(b.dataset.bkrs, Number(b.dataset.at) || 0); }
       if (b.dataset.bk === 'now') {
         const r = await A.api('backupNow', {}, { owner: true });
         showToast(`${I('check')} Nüsxə alındı (${fmtSize(r.size || 0)})`);
@@ -349,7 +352,7 @@ async function renderBackup() {
       if (b.dataset.bk === 'list') {
         const r = await A.api('backupList', {}, { owner: true });
         $('yzsBkList').innerHTML = r.items?.length ? `<table class="report-table" style="width:100%;font-size:13px;"><thead><tr><th>Tarix və saat</th><th>Ölçü</th><th>Kim</th><th></th></tr></thead><tbody>
-          ${r.items.map(x => `<tr><td>${fmtTs(x.at)}</td><td>${fmtSize(x.size)}</td><td>${esc(x.by || '')}</td><td><button type="button" class="btn btn-ghost" style="padding:4px 10px" data-bkget="${esc(x.key)}">Yüklə</button></td></tr>`).join('')}</tbody></table>`
+          ${r.items.map(x => `<tr><td>${fmtTs(x.at)}</td><td>${fmtSize(x.size)}</td><td>${esc(x.by || '')}</td><td style="white-space:nowrap"><button type="button" class="btn btn-ghost" style="padding:4px 10px" data-bkget="${esc(x.key)}">Yüklə</button> <button type="button" class="btn btn-ghost" style="padding:4px 10px" data-bkrs="${esc(x.key)}" data-at="${x.at || ''}">Bərpa et</button></td></tr>`).join('')}</tbody></table>`
           : '<p style="font-size:13px;color:var(--text3)">Hələ nüsxə yoxdur.</p>';
       }
       if (b.dataset.bkget) {
