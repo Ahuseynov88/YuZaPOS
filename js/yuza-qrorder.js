@@ -92,9 +92,11 @@ function toCart(r) {
     const m = (state.menuItems || []).find(mi => mi.id === x.id);
     if (!m) { missing.push(x.name); return; }
     const note = ['QR', x.note || ''].filter(Boolean).join(': ');
-    const key = makeLineKey(x.id, note, 0);
+    // C16 içkisi: variant (şüşə / ml) ofisiantın seçdiyi kimi ayrıca sətir olur
+    const key = makeLineKey(x.id, note, 0) + (x.ml ? '~' + (x.bottle ? 'b' : x.ml) : '');
     if (state._orderDraft[key]) state._orderDraft[key].qty += x.qty;
-    else state._orderDraft[key] = { menuItemId: x.id, qty: x.qty, note, extraFee: 0 };
+    else state._orderDraft[key] = { menuItemId: x.id, qty: x.qty, note, extraFee: 0,
+      ...(x.ml ? { ml: x.ml, vlabel: x.vlabel || `${x.ml} ml`, vprice: x.price, bottle: !!x.bottle } : {}) };
   });
   const gn = document.getElementById('orderGlobalNote');
   if (gn && r.note) gn.value = [gn.value.trim(), 'QR: ' + r.note].filter(Boolean).join(' · ');
@@ -108,7 +110,7 @@ export async function approve(id, sendNow = true) {
   if (!r || !canHandle(r)) return false;
   if (!live(r)) { showToast(`${I('warning')} Masa bağlanıb — sifariş etibarsızdır`); await take(r, 'expired'); return false; }
   if (!await take(r, 'approved', { sent: !!sendNow })) { showToast(`${I('warning')} Bu sifarişə artıq baxılıb`); return false; }
-  addLog('qr_order', `${state.user?.name || 'Rəhbər'} "${r.tableName}" masasının QR sifarişini təsdiqlədi${sendNow ? ' və göndərdi' : ' (səbətdə dəyişmək üçün)'}: ${(r.items || []).map(x => `${x.qty}× ${x.name}`).join(', ')} (${money(r.total)})`, { tableId: r.tableId, qrOrderId: r.id });
+  addLog('qr_order', `${state.user?.name || 'Rəhbər'} "${r.tableName}" masasının QR sifarişini təsdiqlədi${sendNow ? ' və göndərdi' : ' (səbətdə dəyişmək üçün)'}: ${(r.items || []).map(x => `${x.qty}× ${x.name}${x.vlabel ? ' · ' + x.vlabel : ''}`).join(', ')} (${money(r.total)})`, { tableId: r.tableId, qrOrderId: r.id });
   const cart = toCart(r);
   if (sendNow) await cart.send();
   else showToast(`${I('check')} QR sifariş səbətdədir — yoxlayıb "Göndər" basın`);
@@ -129,7 +131,7 @@ function rowHtml(r) {
   const ok = live(r);
   return `<div class="yz-qr-card${ok ? '' : ' is-dead'}">
     <div class="yz-qr-head"><b>${esc(r.tableName)}</b><span>${fmtDT(r.createdAt)}</span></div>
-    <ul>${(r.items || []).map(x => `<li><span>${x.qty}× ${esc(x.name)}${x.note ? ` <small>· ${esc(x.note)}</small>` : ''}</span><b>${money(x.price * x.qty)}</b></li>`).join('')}</ul>
+    <ul>${(r.items || []).map(x => `<li><span>${x.qty}× ${esc(x.name)}${x.vlabel ? ' · ' + esc(x.vlabel) : ''}${x.note ? ` <small>· ${esc(x.note)}</small>` : ''}</span><b>${money(x.price * x.qty)}</b></li>`).join('')}</ul>
     ${r.note ? `<p class="yz-qr-note">${I('note')} ${esc(r.note)}</p>` : ''}
     <div class="yz-qr-total">Cəmi <b>${money(r.total)}</b></div>
     ${ok ? `<div class="yz-qr-acts">
