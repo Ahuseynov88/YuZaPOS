@@ -26,6 +26,7 @@ export const ALL_PERMISSIONS = [
       { key: 'order.view',        label: 'Sifarişi görmək' },
       { key: 'order.add_item',    label: 'Sifarişə mal əlavə etmək' },
       { key: 'order.cancel_item', label: 'Sifarişdən mal silmək' },
+      { key: 'qr.approve',        label: 'Müştərinin QR sifarişini təsdiqləmək (bütün masalar)' },
       { key: 'order.cancel_all',  label: 'Bütün sifarişi ləğv etmək' },
       { key: 'order.discount',       label: 'Endirim vermək (tək mal)' },
       { key: 'order.gift',           label: 'İkram etmək (tək mal)' },

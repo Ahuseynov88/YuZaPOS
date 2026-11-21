@@ -31,6 +31,7 @@ export const NOTIF_EVENTS = {
   birthday_reminder:    'Ad günü xatırlatması',
   portion_low:          'Porsiya azalıb / bitib',
   credit_request:       'Nisyə limiti — təsdiq sorğusu',
+  qr_order:             'Müştəri QR-dan sifariş verdi',
 
   kitchen_new_order:    'Yeni sifariş (mətbəxə)',
   kitchen_order_changed:'Sifariş dəyişdirildi (mətbəxə)',

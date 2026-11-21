@@ -73,6 +73,7 @@ export function checkCustomerMode() {
         initCustomerVoice(tableId);          // səsli mesaj — yalnız masa aktiv olanda
         initCustomerRequestTracking(tableId);
         R.tableOrders.child(tableId).on('value', s => renderCustomerOrder(s.val()));
+        import('./yuza-qrcust.js').then(m => m.start(tableId)).catch(() => {});   // Q1: masadan QR sifariş
       }
       return;
     }
@@ -85,6 +86,7 @@ export function checkCustomerMode() {
       db.ref('chats/' + tableId).off();
       db.ref('customerRequests').orderByChild('tableId').equalTo(tableId).off();
       R.tableOrders.child(tableId).off();
+      window.__yzQrCust?.stop();
       showCustomerClosedScreen('<svg class="icon"><use href="#i-thanks"></use></svg> Masa bağlandı. Yenidən gəlməyinizi gözləyirik!');
     }
   });
