@@ -95,6 +95,7 @@ export const ALL_PERMISSIONS = [
     items: [
       { key: 'catalog.view',     label: 'Məhsul kataloqunu görmək' },
       { key: 'catalog.edit',     label: 'Məhsul yaratmaq və dəyişmək' },
+      { key: 'catalog.delete',   label: 'Məhsulu silmək (istifadə olunmayıbsa)' },
       { key: 'catalog.quickadd', label: 'Alışda yeni məhsul (qısa kart) yaratmaq' },
       { key: 'catalog.price',    label: 'Satış qiymətini dəyişmək' },
       { key: 'catalog.cost',     label: 'Maya dəyərini və alış qiymətlərini görmək' },

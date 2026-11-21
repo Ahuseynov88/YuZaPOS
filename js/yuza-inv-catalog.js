@@ -21,6 +21,7 @@ function priceHistHtml(pid, unit) {
     }).join('')}</tbody></table></div></details>`;
 }
 import { uploadImage } from './yuza-media.js';
+import { addLog } from './utils.js';
 import {
   registerTab, modal, confirmBox, esc, $, ok, fail, numInput, typeChip, attachPicker, whOptions, go, fresh, blurIn
 } from './yuza-inv-ui.js';
@@ -160,6 +161,49 @@ function compressImage(file) {
   });
 }
 
+/* ═══ Məhsulu silmək (21.11.2026) ═══
+   Qayda (kassa ilə eyni): istifadə olunmayan məhsul silinir, istifadə olunan — yalnız arxivlənir.
+   "İstifadə olunub" = anbarda qalıq/hərəkət qeydi var, hər hansı anbar sənədində (alış, silinmə, transfer,
+   sayım, hazırlama) sətri var, başqa məhsulun reseptindədir və ya açıq masada sifarişdədir.
+   Bağlanmış çeklər silinmir — onlarda malın adı və qiyməti saxlanılır. */
+const DOC_NODES = [['invPurchases', 'Alış qaiməsi'], ['invWriteoffs', 'Silinmə aktı'], ['invTransfers', 'Anbarlararası transfer'], ['invCounts', 'Sayım'], ['invProductions', 'Hazırlama aktı']];
+export async function productUsage(pid) {
+  const why = [];
+  const tot = totalStock(pid);
+  if (Math.abs(tot) > 0.0001) why.push(`anbarda qalıq var (${fmtQty(tot)})`);
+  else if (Object.values(inv.stock || {}).some(w => w && Object.prototype.hasOwnProperty.call(w, pid))) why.push('anbar hərəkətləri var (alınıb, satılıb və ya silinib)');
+  const inRecipes = productList({ archived: true }).filter(p => p.id !== pid && p.recipe && p.recipe[pid]).map(p => p.name);
+  if (inRecipes.length) why.push(`bu məhsulların reseptindədir: ${inRecipes.slice(0, 5).join(', ')}${inRecipes.length > 5 ? '…' : ''}`);
+  const [tables, ...docs] = await Promise.all([db.ref('tableOrders').once('value'), ...DOC_NODES.map(([n]) => db.ref(n).once('value').catch(() => null))]);
+  const open = Object.values(tables.val() || {}).some(t => Object.values(t?.items || {}).some(i => i && i.menuItemId === pid));
+  if (open) why.push('açıq masada sifarişdədir');
+  docs.forEach((snap, i) => {
+    const hit = Object.values(snap?.val() || {}).find(d => Object.values(d?.lines || {}).some(l => l && l.pid === pid));
+    if (hit) why.push(`sənəddə var: ${DOC_NODES[i][1]}${hit.no ? ` (${hit.no})` : ''}`);
+  });
+  return why;
+}
+export async function deleteProduct(pid) {
+  const p = product(pid); if (!p) return false;
+  if (!(isAdmin() || can('catalog.delete'))) { fail('Məhsulu silməyə icazəniz yoxdur'); return false; }
+  const why = await productUsage(pid);
+  if (why.length) {
+    const arch = !p.archived && can('catalog.edit') && totalStock(pid) <= 0.0001;
+    const r = await confirmBox(`"${esc(p.name)}" silinə bilməz, çünki istifadə olunub:<br>• ${why.map(esc).join('<br>• ')}<br><br>${arch ? 'Əvəzinə arxivləyə bilərsiniz: menyudan və siyahılardan çıxır, tarixçə qalır.' : (p.archived ? 'Məhsul artıq arxivdədir.' : 'Əvvəlcə qalığı silinmə aktı və ya transfer ilə sıfırlayın, sonra arxivləyin.')}`,
+      { title: 'Silmək olmaz', okLabel: arch ? 'Arxivlə' : 'Başa düşdüm', okCls: 'yzi-btn--gold' });
+    if (r && arch) { await saveProduct(pid, { archived: true }); ok('Arxivləndi'); return 'archived'; }
+    return false;
+  }
+  const yes = await confirmBox(`"${esc(p.name)}" həmişəlik silinsin?<br><small class="mut">Heç yerdə istifadə olunmayıb. Menyudan da çıxarılacaq. Bu əməliyyat geri qaytarılmır.</small>`,
+    { title: 'Məhsulu sil', okLabel: 'Sil', okCls: 'yzi-btn--red' });
+  if (!yes) return false;
+  await db.ref().update({ ['products/' + pid]: null, ['menuItems/' + pid]: null });
+  delete inv.products[pid];
+  addLog('inventory', `Məhsul silindi: ${p.name} (${PTYPES[p.type]?.label || p.type})`, { productId: pid });
+  ok('Silindi');
+  return true;
+}
+
 export function openEditor(id) {
   const old = id ? product(id) : null;
   const canEdit = can('catalog.edit');
@@ -172,6 +216,10 @@ export function openEditor(id) {
   const stations = (state.kitchenStations || []);
 
   const m = modal({ title: old ? esc(old.name) : 'Yeni məhsul', wide: true, body: '<div id="yziEd"></div>', actions: canEdit || canPrice ? [
+    ...(old && (isAdmin() || can('catalog.delete')) ? [{ label: 'Sil', cls: 'yzi-btn--ghost yzi-btn--left yzi-btn--danger-t', onClick: async () => {
+      const r = await deleteProduct(id);
+      return r ? undefined : false;
+    } }] : []),
     ...(old && canEdit ? [{ label: old.archived ? 'Arxivdən çıxar' : 'Arxivlə', cls: 'yzi-btn--ghost yzi-btn--left', onClick: async () => {
       if (!old.archived && totalStock(id) > 0.0001) throw new Error('Qalığı olan məhsul arxivlənə bilməz (əvvəlcə silinmə aktı və ya transfer)');
       const okk = await confirmBox(old.archived ? `"${esc(old.name)}" yenidən aktiv olsun?` : `"${esc(old.name)}" arxivlənsin? Menyudan çıxarılacaq, tarixçə qalacaq.`);
