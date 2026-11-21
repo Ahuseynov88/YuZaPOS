@@ -376,3 +376,5 @@ body.yz-patron-zal #yzInvStaffBtn{display:none!important}
 .yzi-pricebox li{margin:2px 0;font-size:13.5px}
 .yzi-pricebox li span{font-weight:700}
 .yzi-pricebox li .mut{font-weight:400}
+/* Məhsulu silmək düyməsi (21.11.2026) */
+.yzi-btn--danger-t{color:var(--red) !important;border-color:color-mix(in srgb,var(--red) 50%,transparent) !important}
