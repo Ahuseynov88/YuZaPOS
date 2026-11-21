@@ -469,18 +469,29 @@ export function renderReportStaffView(orders, el) {
 export function renderReportItemsView(orders, el) {
   const byItem = {};
   let totalQty = 0, totalRevenue = 0;
+  // 21.11.2026: mal adla yox, menyu nömrəsi (menuItemId) ilə qruplaşdırılır — ad dəyişəndə də bir sətir olur.
+  // Göstərilən ad: menyudakı indiki ad (+ içki variantı); köhnə adlar "(əvvəl: …)" kimi yazılır.
+  const menuById = {}; (state.menuItems || []).forEach(m => { menuById[m.id] = m; });
   orders.forEach(o => {
     Object.values(o.items||{}).forEach(it => {
-      if (!byItem[it.name]) byItem[it.name] = { qty: 0, revenue: 0, discountAmt: 0, discountQty: 0, complimentAmt: 0, complimentQty: 0 };
+      const nm = it.name || 'Naməlum';
+      const suffix = it.ml && nm.includes(' · ') ? nm.slice(nm.indexOf(' · ')) : '';
+      const key = it.menuItemId ? `${it.menuItemId}${it.ml ? '~' + (it.bottle ? 'b' : it.ml) : ''}` : 'n:' + nm;
+      if (!byItem[key]) {
+        const m = it.menuItemId ? menuById[it.menuItemId] : null;
+        byItem[key] = { label: m ? m.name + suffix : nm, cat: m?.category || state.menuItems.find(x=>x.name===nm)?.category || 'Digər', olds: new Set(),
+          qty: 0, revenue: 0, discountAmt: 0, discountQty: 0, complimentAmt: 0, complimentQty: 0 };
+      }
+      if (nm !== byItem[key].label) byItem[key].olds.add(nm);
       const rev = (it.price||0)*it.qty*(1-((it.discountPercent||0)/100)) + (it.extraFee||0);
-      byItem[it.name].qty += it.qty || 0;
-      byItem[it.name].revenue += rev;
+      byItem[key].qty += it.qty || 0;
+      byItem[key].revenue += rev;
       totalQty += it.qty || 0; totalRevenue += rev;
-      if (it.compliment) { byItem[it.name].complimentAmt += (it.originalPrice||0)*it.qty + (it.originalExtraFee||0); byItem[it.name].complimentQty += it.qty||0; }
-      else if (it.discountPercent > 0) { byItem[it.name].discountAmt += (it.price||0)*it.qty*(it.discountPercent/100); byItem[it.name].discountQty += it.qty||0; }
+      if (it.compliment) { byItem[key].complimentAmt += (it.originalPrice||0)*it.qty + (it.originalExtraFee||0); byItem[key].complimentQty += it.qty||0; }
+      else if (it.discountPercent > 0) { byItem[key].discountAmt += (it.price||0)*it.qty*(it.discountPercent/100); byItem[key].discountQty += it.qty||0; }
     });
   });
-  const itemEntries = Object.entries(byItem);
+  const itemEntries = Object.values(byItem).map(v => [v.olds.size ? `${v.label} (əvvəl: ${[...v.olds].join(', ')})` : v.label, v]);
   const byQtySorted = [...itemEntries].sort((a,b)=>b[1].qty-a[1].qty);
   const byRevenueSorted = [...itemEntries].sort((a,b)=>b[1].revenue-a[1].revenue);
   const topByQty = byQtySorted[0];
@@ -489,7 +500,7 @@ export function renderReportItemsView(orders, el) {
   // Kateqoriya üzrə: hər kateqoriyanın cəmi + o kateqoriyadakı malların tək-tək bölgüsü
   const byCategory = {};
   itemEntries.forEach(([name,v]) => {
-    const cat = state.menuItems.find(m=>m.name===name)?.category || 'Digər';
+    const cat = v.cat || 'Digər';
     if (!byCategory[cat]) byCategory[cat] = { qty: 0, revenue: 0, items: [] };
     byCategory[cat].qty += v.qty; byCategory[cat].revenue += v.revenue;
     byCategory[cat].items.push([name, v]);

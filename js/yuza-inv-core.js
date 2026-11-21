@@ -490,6 +490,36 @@ function reverseSync(id, mi) {
   if (Object.keys(upd).length) db.ref('products/' + id).update(upd);
 }
 
+/* Jurnal üçün dəyişikliklər: "qiymət 12 → 14 ₼; kateqoriya İsti → Qril" */
+const CH_FIELDS = [
+  ['name', 'ad'], ['type', 'növ', v => PTYPES[v]?.label || v], ['category', 'kateqoriya'], ['unit', 'vahid'],
+  ['price', 'qiymət', v => (Number(v) || 0).toFixed(2) + ' ₼'], ['hourlyRate', 'saatlıq qiymət', v => (Number(v) || 0).toFixed(2) + ' ₼'],
+  ['vatRate', 'ƏDV', v => (Number(v) || 0) + '%'], ['barcode', 'barkod'], ['minQty', 'minimum qalıq'],
+  ['showInMenu', 'menyuda', v => v === false ? 'yox' : 'bəli'], ['active', 'satışda', v => v === false ? 'yox' : 'bəli'],
+  ['showInQr', 'QR menyuda', v => v === false ? 'yox' : 'bəli'], ['archived', 'arxiv', v => v ? 'bəli' : 'yox']
+];
+function changesText(old, data) {
+  const out = [];
+  const empty = (v) => v === undefined || v === null || v === '';
+  CH_FIELDS.forEach(([k, label, f]) => {
+    if (!(k in data)) return;
+    const a = old[k], b = data[k];
+    if (empty(a) && empty(b)) return;
+    if (k === 'price' || k === 'hourlyRate' || k === 'vatRate' || k === 'minQty') { if (Number(a || 0) === Number(b || 0)) return; }
+    else if (k === 'showInMenu' || k === 'active' || k === 'showInQr' || k === 'archived') { if (!!(a ?? (k !== 'archived')) === !!(b ?? (k !== 'archived'))) return; }
+    else if (String(a ?? '') === String(b ?? '')) return;
+    const fmt = f || (v => empty(v) ? '—' : String(v));
+    out.push(`${label} ${fmt(a)} → ${fmt(b)}`);
+  });
+  if ('recipe' in data && JSON.stringify(old.recipe || null) !== JSON.stringify(data.recipe || null)) {
+    const nm = (r) => Object.keys(r || {}).map(id => inv.products[id]?.name || '?');
+    const before = new Set(nm(old.recipe)), after = new Set(nm(data.recipe));
+    const add = [...after].filter(x => !before.has(x)), del = [...before].filter(x => !after.has(x));
+    out.push('resept dəyişdi' + (add.length ? ` (+ ${add.join(', ')})` : '') + (del.length ? ` (− ${del.join(', ')})` : ''));
+  }
+  if ('photo' in data && (old.photo || '') !== (data.photo || '')) out.push(data.photo ? 'şəkil dəyişdi' : 'şəkil silindi');
+  return out.join('; ');
+}
 /* ═══ MƏHSUL YAZMA ═══ */
 export async function saveProduct(id, data, { log = true } = {}) {
   const now = Date.now();
@@ -502,14 +532,25 @@ export async function saveProduct(id, data, { log = true } = {}) {
   else { const k = db.ref('products').push(); pid = k.key; await k.set({ ...data, createdAt: now, createdBy: uname(), updatedAt: now }); }
   inv.products[pid] = { ...(inv.products[pid] || {}), ...data };
   await syncMenu(pid);
-  if (log) addLog('inventory', `${old ? 'Məhsul yeniləndi' : 'Yeni məhsul'}: ${data.name || old?.name}`, { productId: pid });
+  if (log) {
+    const ch = old ? changesText(old, data) : '';
+    addLog('inventory', `${old ? 'Məhsul yeniləndi' : 'Yeni məhsul'}: ${data.name || old?.name}${ch ? ' — ' + ch : ''}`, { productId: pid });
+  }
   return pid;
 }
-export function findSimilar(name, exceptId) {
+export function findSimilar(name, exceptId, { archived = false } = {}) {
   const n = norm(name);
   if (n.length < 3) return [];
-  return productList().filter(p => p.id !== exceptId && (norm(p.name) === n || norm(p.name).includes(n) || n.includes(norm(p.name)) || lev(norm(p.name), n) <= 2)).slice(0, 4);
+  return productList({ archived }).filter(p => p.id !== exceptId && (norm(p.name) === n || norm(p.name).includes(n) || n.includes(norm(p.name)) || lev(norm(p.name), n) <= 2)).slice(0, 4);
 }
+/* Eyni adlı (böyük-kiçik hərf, boşluq, ı/i, ə/e fərqi nəzərə alınmır) məhsul — arxivdəkilər də daxil */
+export function findDuplicate(name, exceptId) {
+  const n = norm(name);
+  if (!n) return null;
+  return productList({ archived: true }).find(p => p.id !== exceptId && norm(p.name) === n) || null;
+}
+/* Malın anbar hərəkəti olubmu (qalıq 0 olsa da anbar qeydində açarı qalır) */
+export const hasStockHistory = (pid) => Object.values(inv.stock || {}).some(w => w && Object.prototype.hasOwnProperty.call(w, pid));
 const norm = (s) => String(s || '').toLowerCase().replace(/[\s.,\-_/()]+/g, ' ').replace(/ı/g, 'i').replace(/ə/g, 'e').trim();
 function lev(a, b) {
   if (Math.abs(a.length - b.length) > 2) return 9;

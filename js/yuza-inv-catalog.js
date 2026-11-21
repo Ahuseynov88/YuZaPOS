@@ -6,7 +6,7 @@ import { state } from './state.js';
 import {
   inv, PTYPES, UNITS, product, productList, warehouseList, totalStock, stockIn, isLow, unitCost, recipeCost,
   netOf, marginInfo, saveProduct, findSimilar, can, isAdmin, isV2, fmtQty, fmtMoney, fmtDT, r2, r3, r4, num,
-  defaultWarehouseId, uname, purchaseHistory, stockOnServer, stockSrvAt
+  defaultWarehouseId, uname, purchaseHistory, stockOnServer, stockSrvAt, findDuplicate, hasStockHistory
 } from './yuza-inv-core.js';
 /* Mal kartında alış qiymətləri tarixçəsi (təsdiqlənmiş qaimələrdən) */
 function priceHistHtml(pid, unit) {
@@ -227,12 +227,13 @@ export function openEditor(id) {
       await saveProduct(id, { archived: !old.archived }); ok(old.archived ? 'Aktivləşdirildi' : 'Arxivləndi');
     } }] : []),
     { label: 'Ləğv', cancel: true, cls: 'yzi-btn--ghost' },
-    { label: 'Yadda saxla', cls: 'yzi-btn--gold', onClick: async () => { await save(); } }
+    { label: 'Yadda saxla', cls: 'yzi-btn--gold', onClick: async () => { if (await save() === false) return false; } }
   ] : [{ label: 'Bağla', cancel: true, cls: 'yzi-btn--ghost' }] });
   const root = m.body.querySelector('#yziEd');
 
   const T = () => PTYPES[d.type] || PTYPES.goods;
   const dis = canEdit ? '' : 'disabled';
+  const unitLocked = !!(old && hasStockHistory(id));   // 21.11.2026: hərəkəti olan malın vahidi kilidlidir
 
   function draw() {
     blurIn(root);
@@ -268,7 +269,7 @@ export function openEditor(id) {
         <section class="yzi-card">
           <h3>Vahid və qablaşma</h3>
           <div class="yzi-grid2">
-            <label class="yzi-f"><span>${t.stock ? 'Anbar vahidi (qalıq bu vahiddə)' : 'Satış vahidi'}</span><select id="yziEdUnit" ${dis}>${UNITS.map(u => `<option${u === d.unit ? ' selected' : ''}>${u}</option>`).join('')}</select></label>
+            <label class="yzi-f"><span>${t.stock ? 'Anbar vahidi (qalıq bu vahiddə)' : 'Satış vahidi'}</span><select id="yziEdUnit" ${dis || (unitLocked ? 'disabled' : '')}>${UNITS.map(u => `<option${u === d.unit ? ' selected' : ''}>${u}</option>`).join('')}</select>${unitLocked ? '<small class="mut">Malın anbar hərəkəti var — vahid dəyişdirilə bilməz. Başqa vahid lazımdırsa, yeni mal yaradın.</small>' : ''}</label>
             <label class="yzi-f"><span>ƏDV dərəcəsi (%)</span>
               <span class="yzi-inline">${numInput(`id="yziEdVat" ${canPrice ? '' : 'disabled'}`, d.vatRate ?? 0)}
               ${[0, 8, 18].map(v => `<button type="button" class="yzi-chipbtn" data-vat="${v}" ${canPrice ? '' : 'disabled'}>${v}%</button>`).join('')}</span></label>
@@ -411,9 +412,19 @@ export function openEditor(id) {
       }
     });
     const nameI = root.querySelector('#yziEdName');
-    if (nameI && !old) nameI.addEventListener('input', () => {
-      const s = findSimilar(nameI.value, id);
-      root.querySelector('#yziEdSim').innerHTML = s.length ? `<div class="yzi-warnbox"><b>Oxşar məhsul artıq var:</b> ${s.map(p => esc(p.name)).join(', ')}. Təkrar kart yaratmayın.</div>` : '';
+    const simBox = () => {
+      const v = nameI.value.trim();
+      if (old && v.toLocaleLowerCase('az') === String(old.name || '').toLocaleLowerCase('az')) { root.querySelector('#yziEdSim').innerHTML = ''; return; }
+      const dup = findDuplicate(v, id);
+      const s = dup ? [dup] : findSimilar(v, id, { archived: true });
+      root.querySelector('#yziEdSim').innerHTML = s.length ? `<div class="yzi-warnbox"><b>${dup ? 'Bu adda mal artıq var' : 'Oxşar mal var — bunu demək istəyirsiniz?'}</b>
+        ${s.map(p => `<div class="yzi-row"><span>${esc(p.name)} <small class="mut">· ${esc(PTYPES[p.type]?.label || '')}${p.archived ? ' · arxivdə' : ''}</small></span><button type="button" class="yzi-btn yzi-btn--sm yzi-btn--ghost" data-open-p="${esc(p.id)}">Aç</button></div>`).join('')}
+        ${dup ? '<small>Eyni adlı ikinci mal yaradıla bilməz.</small>' : ''}</div>` : '';
+    };
+    if (nameI) { nameI.addEventListener('input', simBox); if (nameI.value && !old) simBox(); }
+    root.querySelector('#yziEdSim')?.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-open-p]'); if (!b) return;
+      m.close(); setTimeout(() => openEditor(b.dataset.openP), 50);
     });
     root.querySelector('#yziEdPhotoDel')?.addEventListener('click', () => { collect(); d.photo = ''; draw(); });   // "Yadda saxla" basılanda bazadan da silinir
     root.querySelector('#yziEdPhoto')?.addEventListener('change', async (e) => {
@@ -430,6 +441,19 @@ export function openEditor(id) {
     collect();
     const t = T();
     if (!d.name) throw new Error('Ad yazılmalıdır');
+    // 21.11.2026: eyni adlı ikinci mal yoxdur; oxşar ad — təsdiq; hərəkəti olan malın vahidi dəyişmir
+    const renamed = !old || String(old.name || '').trim().toLocaleLowerCase('az') !== String(d.name).trim().toLocaleLowerCase('az');
+    if (renamed) {
+      const dup = findDuplicate(d.name, id);
+      if (dup) throw new Error(`"${dup.name}" adlı mal artıq var${dup.archived ? ' (arxivdə)' : ''}. Eyni adlı ikinci mal yaradıla bilməz.`);
+      const sim = findSimilar(d.name, id, { archived: true });
+      if (sim.length) {
+        const go2 = await confirmBox(`Oxşar adlı mal var: <b>${sim.map(p => esc(p.name) + (p.archived ? ' (arxivdə)' : '')).join(', ')}</b>.<br>Bunu demək istəyirdiniz? Eyni maldırsa, yeni kart yaratmayın — həmin malı açın.`,
+          { title: 'Oxşar ad', okLabel: `Bəli, "${esc(d.name)}" ayrıca maldır`, okCls: 'yzi-btn--gold' });
+        if (!go2) return false;
+      }
+    }
+    if (old && (d.unit || 'ədəd') !== (old.unit || 'ədəd') && hasStockHistory(id)) throw new Error('Malın anbar hərəkəti var — vahid dəyişdirilə bilməz. Başqa vahid lazımdırsa, yeni mal yaradın.');
     if (t.menu && d.showInMenu !== false && !(Number(d.pricingMode === 'hourly' ? d.hourlyRate : d.price) > 0)) throw new Error('Menyuda görünən məhsulun satış qiyməti olmalıdır');
     if (t.recipe && d.type === 'dish' && !Object.keys(d.recipe).length && !old) {
       const go1 = await confirmBox('Texnoloji kart (resept) boşdur. Satışda anbardan heç nə silinməyəcək. Davam edilsin?');

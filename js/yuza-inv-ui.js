@@ -6,7 +6,7 @@
 import { state } from './state.js';
 import { esc, showToast } from './utils.js';
 import {
-  inv, onInv, startInv, PTYPES, UNITS, product, productList, findSimilar, saveProduct,
+  inv, onInv, startInv, PTYPES, UNITS, product, productList, findSimilar, findDuplicate, saveProduct,
   hasAnyInvPerm, can, isV2, fmtQty, totalStock, packsOf, defaultWarehouseId, watchDocs
 } from './yuza-inv-core.js';
 
@@ -293,10 +293,10 @@ export function quickAddProduct(name, { types } = {}) {
       $('yziQaUnit').value = picked === 'goods' ? 'ədəd' : ($('yziQaUnit').value || 'kq');
     };
     const sim = () => {
-      const list = findSimilar($('yziQaName').value);
+      const list = findSimilar($('yziQaName').value, null, { archived: true });
       $('yziQaSim').innerHTML = list.length ? `<div class="yzi-warnbox"><b>Oxşar ad tapıldı — eyni mal ola bilər:</b>
-        ${list.map(p => `<div class="yzi-row"><span>${esc(p.name)} <small>· ${PTYPES[p.type]?.label} · ${esc(p.unit || '')}</small></span>
-        <button type="button" class="yzi-btn yzi-btn--sm" data-use="${p.id}">Bunu seç</button></div>`).join('')}</div>` : '';
+        ${list.map(p => `<div class="yzi-row"><span>${esc(p.name)} <small>· ${PTYPES[p.type]?.label} · ${esc(p.unit || '')}${p.archived ? ' · arxivdə' : ''}</small></span>
+        ${p.archived ? '' : `<button type="button" class="yzi-btn yzi-btn--sm" data-use="${p.id}">Bunu seç</button>`}</div>`).join('')}</div>` : '';
     };
     let resolved = false;
     const m = modal({
@@ -307,6 +307,8 @@ export function quickAddProduct(name, { types } = {}) {
         { label: 'Yarat və seç', cls: 'yzi-btn--gold', onClick: async () => {
           const nm = $('yziQaName').value.trim();
           if (!nm) throw new Error('Ad yazılmalıdır');
+          const dup = findDuplicate(nm);
+          if (dup) throw new Error(`"${dup.name}" adlı mal artıq var${dup.archived ? ' (arxivdə — kataloqda arxivdən çıxarın)' : ' — yuxarıdakı siyahıdan "Bunu seç" basın'}. Eyni adlı ikinci mal yaradıla bilməz.`);
           const factor = Number(String($('yziQaFactor').value).replace(',', '.'));
           const pack = $('yziQaPack').value.trim();
           const data = {
